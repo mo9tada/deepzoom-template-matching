@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    "target": "ESNext", // Modern JS output
+    "lib": [
+      "DOM",
+      "DOM.Iterable",
+      "ESNext"
+    ], // Browser and JS features
+    "allowJs": false, // Only TypeScript files
+    "skipLibCheck": true, // Skip type checks in node_modules
+    "strict": true, // Enable strict type checking
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true, // Next.js handles output
+    "esModuleInterop": true, // Allows default imports from CommonJS modules
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve", // React 18 JSX transform
+    "types": [
+      "node"
+    ], // Node.js type definitions
+    "baseUrl": ".", // Allows absolute imports from root
+    "paths": { // Optional: use @ for src/
+      "@/*": [
+        "./*"
+      ]
+    },
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "next-env.d.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next"
+  ]
+}
