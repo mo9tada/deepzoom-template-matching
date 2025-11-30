@@ -222,7 +222,6 @@ export default function SelectionCanvas() {
   const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([])
   const [selectedObject, setSelectedObject] = useState<DetectedObject | null>(null)
   const [annotatedImage, setAnnotatedImage] = useState<string | null>(null)
-  const [detectionSetId, setDetectionSetId] = useState<string | null>(null)
   const [uploadedPath, setUploadedPath] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -289,7 +288,6 @@ export default function SelectionCanvas() {
     setDetectedObjects([])
     setSelectedObject(null)
     setAnnotatedImage(null)
-    setDetectionSetId(null)
     setUploadedPath(null)
     setSelectionBox(null)
     setMatchStats([])
@@ -857,7 +855,6 @@ export default function SelectionCanvas() {
         throw new Error(result?.message || "Template matching failed")
       }
 
-      setDetectionSetId(result.detectionSetId ?? null)
       setUploadedPath(null)
       setAnnotatedImage(null)
 

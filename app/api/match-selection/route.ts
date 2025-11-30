@@ -1,11 +1,5 @@
 import { NextResponse } from "next/server"
-import {
-  detectTemplateMatches,
-  type DetectTemplateOptions,
-  type TemplateDetectionResult,
-} from "@/lib/template-matcher"
 import { normalizeSelection, type SelectionRect } from "@/lib/selection"
-import { storeDetections } from "@/lib/detection-cache"
 
 interface TemplateMatchRequestBody {
   image: string
@@ -18,12 +12,39 @@ interface TemplateMatchRequestBody {
   options?: TemplateMatchOptionsPayload
 }
 
-type TemplateMatchOptionsPayload = Omit<DetectTemplateOptions, "statsCollector">
+interface TemplateMatchOptionsPayload {
+  mode?: "auto" | "linework" | "texture"
+  minSimilarity?: number
+  searchPadding?: number
+  label?: string
+  scaleSteps?: number[]
+}
 
 interface ParsedImagePayload {
-  buffer: Buffer
   dataUrl: string
   mime: string
+}
+
+interface MatcherDetection {
+  label: string
+  confidence: number
+  boundingBox: SelectionRect
+  templateSimilarity?: number
+  templatePass?: string
+}
+
+interface MatcherStats {
+  pass: string
+  candidates: number
+  kept: number
+  durationMs: number
+  bestSimilarity: number | null
+}
+
+interface MatcherResult {
+  matches: MatcherDetection[]
+  stats: MatcherStats[]
+  bestSimilarity: number | null
 }
 
 const PYTHON_MATCHER_BASE_URL = process.env.PY_MATCHER_URL ?? "http://127.0.0.1:8000"
@@ -33,7 +54,7 @@ const PYTHON_MATCHER_ENDPOINT = (() => {
   try {
     return new URL("/match-selection", PYTHON_MATCHER_BASE_URL).toString()
   } catch (error) {
-    console.warn("Invalid PY_MATCHER_URL, falling back to TS matcher only", error)
+    console.warn("Invalid PY_MATCHER_URL, disabling matcher endpoint", error)
     return null
   }
 })()
@@ -45,14 +66,10 @@ const parseIncomingImage = (raw: string): ParsedImagePayload => {
     const match = trimmed.match(/^data:(image\/[^;]+);base64,(.*)$/)
     if (!match) throw new Error("Invalid image data URL")
     const mime = match[1]
-    const base64 = match[2]
-    const buffer = Buffer.from(base64, "base64")
-    return { buffer, dataUrl: trimmed, mime }
+    return { dataUrl: trimmed, mime }
   }
   const mime = "image/png"
-  const buffer = Buffer.from(trimmed, "base64")
   return {
-    buffer,
     dataUrl: `data:${mime};base64,${trimmed}`,
     mime,
   }
@@ -88,7 +105,7 @@ const callPythonMatcher = async (
   imageDataUrl: string,
   selection: SelectionRect,
   options?: TemplateMatchOptionsPayload
-): Promise<TemplateDetectionResult> => {
+): Promise<MatcherResult> => {
   if (!PYTHON_MATCHER_ENDPOINT) {
     throw new Error("Python matcher endpoint is not configured")
   }
@@ -111,7 +128,7 @@ const callPythonMatcher = async (
       const detail = await response.text()
       throw new Error(`Python matcher responded with ${response.status}: ${detail}`)
     }
-    return (await response.json()) as TemplateDetectionResult
+    return (await response.json()) as MatcherResult
   } finally {
     clearTimeout(timeout)
   }
@@ -132,38 +149,20 @@ export async function POST(request: Request) {
     }
 
     const parsed = parseIncomingImage(body.image)
-
-    let matcherResult: TemplateDetectionResult | null = null
-    let matcherBackend: "python" | "typescript" = "typescript"
-
-    if (PYTHON_MATCHER_ENDPOINT) {
-      try {
-        matcherResult = await callPythonMatcher(parsed.dataUrl, selection, body.options)
-        matcherBackend = "python"
-      } catch (pythonError) {
-        console.error("Python matcher failed, falling back to TS matcher", pythonError)
-      }
+    if (!PYTHON_MATCHER_ENDPOINT) {
+      throw new Error("Python matcher endpoint is not configured")
     }
 
-    if (!matcherResult) {
-      matcherResult = await detectTemplateMatches(parsed.buffer, selection, body.options)
-      matcherBackend = "typescript"
-    }
-
-    const result = matcherResult
-
-    const detectionSetId = storeDetections(
-      result.matches.map((match) => ({ label: match.label, confidence: match.confidence, boundingBox: match.boundingBox }))
-    )
+    const result = await callPythonMatcher(parsed.dataUrl, selection, body.options)
+    const matcherBackend: "python" = "python"
 
     return NextResponse.json({
       success: true,
-      detectionSetId,
       matches: result.matches,
       metadata: {
         selection,
         totalMatches: result.matches.length,
-        passStats: result.stats,
+        passStats: result.stats ?? [],
         bestSimilarity: result.bestSimilarity,
         options: body.options ?? null,
         mime: parsed.mime,

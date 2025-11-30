@@ -19,6 +19,11 @@ yarn-error.log*
 # env files
 .env*
 
+# local secrets / credentials
+dotted-ratio-476419-u1-bf6b784281f2.json
+tokyo-kingdom-476417-v2-088939c3adfe.json
+update-env.ps1
+
 # vercel
 .vercel
 
