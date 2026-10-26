@@ -18,6 +18,7 @@ yarn-error.log*
 
 # env files
 .env*
+!.env.example
 
 # local secrets / credentials
 dotted-ratio-476419-u1-bf6b784281f2.json
@@ -30,3 +31,12 @@ update-env.ps1
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# runtime uploads and model weights (large binaries stay out of git)
+uploads/
+*.pt
