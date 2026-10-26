@@ -1,0 +1,5 @@
+services:
+  matcher:
+    build: ./python-matcher
+    ports:
+      - "8000:8000"
