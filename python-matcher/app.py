@@ -26,11 +26,13 @@ def decode_image_data(data: str) -> np.ndarray:
     raise ValueError("No image data supplied")
   payload = data.strip()
   if payload.startswith("data:image"):
-    header, encoded = payload.split(",", 1)
+    _, encoded = payload.split(",", 1)
   else:
     encoded = payload
   buffer = base64.b64decode(encoded)
-  pil_image = Image.open(io.BytesIO(buffer))
+  # Normalise palette, grayscale and RGBA images (common for blueprint scans)
+  # to 3-channel RGB before handing them to OpenCV.
+  pil_image = Image.open(io.BytesIO(buffer)).convert("RGB")
   return cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
 
 
@@ -197,7 +199,9 @@ def match_selection(payload: MatchRequest):
   search_patch_proc, template_patch_proc, downscale_factor = maybe_downscale_search(search_patch, template_patch)
   downscale_factor = max(downscale_factor, 1e-3)
   base_template = apply_mode_preprocess(template_patch_proc, options.mode)
-  search_surface = search_patch_proc.astype(np.float32) / 255.0
+  # The search surface must go through the same preprocessing as the template,
+  # otherwise e.g. "linework" mode compares an edge map against raw pixels.
+  search_surface = apply_mode_preprocess(search_patch_proc, options.mode)
   search_height, search_width = search_surface.shape[:2]
   default_scales = options.scales or [0.65, 0.85, 1.0, 1.2, 1.45]
   default_rotations = options.rotations or [0.0]
